@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block contenido %}
+<h1 class="h3 mb-3">Página no encontrada</h1>
+<p>La página solicitada no existe.</p>
+<a href="{{ url_for('lista_contactos') }}" class="btn btn-primary mt-3">Ir a contactos</a>
+{% endblock %}

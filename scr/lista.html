@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3">Contactos</h1>
+  <a href="{{ url_for('nuevo_contacto') }}" class="btn btn-primary">Nuevo contacto</a>
+</div>
+
+{% if contactos %}
+  <table class="table table-striped table-bordered">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Correo</th>
+        <th>Teléfono</th>
+        <th>Etiqueta</th>
+        <th>Notas</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in contactos %}
+        <tr>
+          <td>{{ c.nombre }}</td>
+          <td>{{ c.correo }}</td>
+          <td>{{ c.telefono }}</td>
+          <td>{{ c.etiqueta or '—' }}</td>
+          <td>{{ c.notas or '—' }}</td>
+          <td>
+            <a href="{{ url_for('editar_contacto', contacto_id=c.id) }}" class="btn btn-sm btn-secondary">Editar</a>
+            <a href="{{ url_for('eliminar_contacto', contacto_id=c.id) }}" class="btn btn-sm btn-danger">Eliminar</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No hay contactos aún. Usa el botón “Nuevo contacto”.</p>
+{% endif %}
+{% endblock %}

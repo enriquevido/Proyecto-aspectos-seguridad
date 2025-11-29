@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block contenido %}
+<h1 class="h3 mb-3">Eliminar contacto</h1>
+<p>¿Seguro que deseas eliminar el contacto <strong>{{ contacto.nombre }}</strong>?</p>
+
+<form method="post">
+  <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+  <a href="{{ url_for('lista_contactos') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}
