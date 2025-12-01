@@ -6,9 +6,9 @@ import re
 from typing import List, Dict, Any, Optional
 
 app = Flask(__name__)
-app.secret_key = "cambia-esta-clave-en-produccion"
+# Use SECRET_KEY from environment in production; keep a safe default for local dev
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-not-for-production")
 
-# Configuración de logs
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
@@ -16,13 +16,7 @@ logging.basicConfig(
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "contactos.json")
 
-
-# ---------- Utilidades de persistencia segura sobre JSON ----------
-
 def cargar_contactos() -> List[Dict[str, Any]]:
-    """Lee el archivo JSON y devuelve una lista de contactos.
-    Si el archivo no existe o está vacío, devuelve una lista vacía.
-    """
     if not os.path.exists(DATA_FILE):
         return []
     try:
@@ -33,12 +27,10 @@ def cargar_contactos() -> List[Dict[str, Any]]:
             return json.loads(contenido)
     except Exception as e:
         logging.exception("Error al leer contactos.json")
-        # No revelamos detalles al usuario: devolvemos lista vacía
         return []
 
 
 def guardar_contactos(contactos: List[Dict[str, Any]]) -> None:
-    """Sobrescribe el archivo JSON de contactos de forma segura."""
     try:
         tmp_file = DATA_FILE + ".tmp"
         with open(tmp_file, "w", encoding="utf-8") as f:
@@ -46,8 +38,6 @@ def guardar_contactos(contactos: List[Dict[str, Any]]) -> None:
         os.replace(tmp_file, DATA_FILE)
     except Exception:
         logging.exception("Error al guardar contactos.json")
-        # No levantamos la excepción hacia la vista para no exponer detalles.
-
 
 def siguiente_id(contactos: List[Dict[str, Any]]) -> int:
     """Obtiene el siguiente ID entero para un nuevo contacto."""
@@ -55,10 +45,7 @@ def siguiente_id(contactos: List[Dict[str, Any]]) -> int:
         return 1
     return max(c.get("id", 0) for c in contactos) + 1
 
-
-# ---------- Validación de entradas ----------
-
-# Regex ancladas
+# Regex para validaciones
 NOMBRE_REGEX = re.compile(r"^[A-Za-zÁÉÍÓÚáéíóúÑñÜü ]{1,80}$")
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 TELEFONO_REGEX = re.compile(r"^\+?[0-9 ]+$")
@@ -81,15 +68,44 @@ def validar_correo(correo: str) -> Optional[str]:
         return "El correo es obligatorio."
     if len(correo) > 120:
         return "El correo no debe exceder 120 caracteres."
-    if not EMAIL_REGEX.match(correo):
-        return "El formato de correo no es válido."
+
+    if correo.count("@") != 1:
+        return "El correo debe contener exactamente un '@'."
+
+    local, dominio = correo.split("@", 1)
+
+    if not local:
+        return "La parte local (antes de '@') no puede estar vacía."
+    if not re.match(r'^[A-Za-z0-9._+\-]+$', local):
+        return "El correo contiene caracteres inválidos (solo letras, dígitos y . _ - +)."
+    if local.startswith('.') or local.endswith('.'):
+        return "El correo electrónico no puede empezar ni terminar con '.'"
+    if '..' in local:
+        return "La parte local no puede contener puntos consecutivos."
+
+    if not dominio or dominio.strip() == "":
+        return "El dominio no puede estar vacío."
+    if '.' not in dominio:
+        return "El dominio debe contener al menos un punto (por ejemplo: 'dominio.com')."
+
+    partes = dominio.split('.')
+    for parte in partes:
+        if parte == '':
+            return "El dominio no puede contener puntos consecutivos o punto al inicio/final)."
+        if not re.match(r'^[A-Za-z0-9\-]+$', parte):
+            return "El dominio contiene caracteres inválidos (solo letras, dígitos y '-')."
+        if parte.startswith('-') or parte.endswith('-'):
+            return "El dominio no puede comenzar ni terminar con '-'."
+
+    tld = partes[-1]
+    if len(tld) < 2 or not re.match(r'^[A-Za-z]{2,}$', tld):
+        return "La extensión debe tener al menos 2 letras (por ejemplo: '.com', '.mx', '.technology')."
     return None
 
 
 def validar_telefono(telefono: str) -> Optional[str]:
     if not telefono:
         return "El teléfono es obligatorio."
-    # Eliminamos espacios para contar solo dígitos
     solo_digitos = re.sub(r"\D", "", telefono)
     if len(solo_digitos) < 7 or len(solo_digitos) > 15:
         return "El teléfono debe tener entre 7 y 15 dígitos."
@@ -109,14 +125,12 @@ def validar_notas(notas: str) -> Optional[str]:
         return None
     if len(notas) > 500:
         return "Las notas no deben exceder 500 caracteres."
-    # No permitimos etiquetas HTML sencillas
     if "<" in notas or ">" in notas:
         return "Las notas no deben contener etiquetas HTML."
     return None
 
 
 def validar_contacto_formulario(data: Dict[str, str]) -> Dict[str, str]:
-    """Valida todos los campos del formulario. Devuelve dict de errores por campo."""
     errores = {}
 
     nombre = data.get("nombre", "").strip()
@@ -147,9 +161,6 @@ def validar_contacto_formulario(data: Dict[str, str]) -> Dict[str, str]:
 
     return errores
 
-
-# ---------- Rutas ----------
-
 @app.route("/")
 def index():
     return redirect(url_for("lista_contactos"))
@@ -158,7 +169,6 @@ def index():
 @app.route("/contactos")
 def lista_contactos():
     contactos = cargar_contactos()
-    # Revalidamos antes de mostrar por seguridad defensiva
     contactos_validos = []
     for c in contactos:
         data = {
@@ -210,7 +220,6 @@ def nuevo_contacto():
             logging.exception("Error inesperado al crear contacto")
             flash("Ocurrió un error interno. Intenta de nuevo más tarde.", "error")
             return render_template("formulario.html", contacto=form_data, modo="nuevo")
-    # GET
     contacto_vacio = {"nombre": "", "correo": "", "telefono": "", "etiqueta": "", "notas": ""}
     return render_template("formulario.html", contacto=contacto_vacio, modo="nuevo")
 
@@ -258,7 +267,6 @@ def editar_contacto(contacto_id: int):
             flash("Ocurrió un error interno. Intenta de nuevo más tarde.", "error")
             return render_template("formulario.html", contacto=form_data, modo="editar")
 
-    # GET
     return render_template("formulario.html", contacto=contacto, modo="editar")
 
 
@@ -281,11 +289,8 @@ def eliminar_contacto(contacto_id: int):
             flash("Ocurrió un error interno. Intenta de nuevo más tarde.", "error")
             return redirect(url_for("lista_contactos"))
 
-    # GET: mostrar página de confirmación
     return render_template("confirmar_eliminar.html", contacto=contacto)
 
-
-# Manejadores de error genéricos
 @app.errorhandler(500)
 def error_500(e):
     logging.exception("Error 500 no controlado")
@@ -298,6 +303,4 @@ def error_404(e):
 
 
 if __name__ == "__main__":
-    # Ejecutar con: python app.py
-    # Luego abrir http://127.0.0.1:5000/contactos
     app.run(debug=False)
