@@ -49,5 +49,3 @@ gunicorn --bind 127.0.0.1:8000 app:app
 Notas de seguridad
 - No dejes el `SECRET_KEY` embebido en el código en producción.
 - Render permite configurar `Environment` variables en la UI.
-
-Si quieres, puedo completar la creación de un repo en GitHub (con commit y push desde aquí) y luego guiar o completar el paso de creación del servicio en Render.

@@ -2,7 +2,7 @@
 
 Descripción
 -----------
-Esta aplicación es una agenda de contactos mínima construida con Flask. Permite crear, listar, editar y eliminar contactos; los datos se almacenan en un fichero JSON local (`contactos.json`). Incluye validación para nombre, correo, teléfono, etiqueta y notas, y usa plantillas Jinja2 para renderizar la interfaz.
+Esta aplicación es una agenda de contactos mínima construida con Flask. Permite crear, listar, editar y eliminar contactos; los datos se almacenan en un fichero JSON. Incluye validación para nombre, correo, teléfono, etiqueta y notas.
 
 Las operaciones principales son:
 - Listar todos los contactos válidos
